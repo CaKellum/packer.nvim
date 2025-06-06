@@ -1,8 +1,6 @@
-local plugin_utils = require 'packer.plugin_utils'
 local a = require 'packer.async'
 local display = require 'packer.display'
 local log = require 'packer.log'
-local util = require 'packer.util'
 
 local await = a.wait
 local async = a.sync

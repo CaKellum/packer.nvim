@@ -19,11 +19,6 @@ local function set_extmark(buf, ns, id, line, col)
     if result then
         return mark_id
     end
-    -- We must be in an older version of Neovim
-    if not id then
-        id = 0
-    end
-    return api.nvim_buf_set_extmark(buf, ns, id, line, col, {})
 end
 
 local function get_extmark_by_id(buf, ns, id)
@@ -33,8 +28,6 @@ local function get_extmark_by_id(buf, ns, id)
     else
         log.error('Failed to get extmark: ' .. line)
     end
-    -- We must be in an older version of Neovim
-    return api.nvim_buf_get_extmark_by_id(buf, ns, id)
 end
 
 local function strip_newlines(raw_lines)
@@ -171,7 +164,7 @@ local function prompt_user(headline, body, callback)
             '',
         }, body)
     )
-    api.nvim_buf_set_option(buf, 'modifiable', false)
+    api.nvim_buf_set_option_value(buf, 'modifiable', false)
     local opts = {
         relative = 'editor',
         width = width,
@@ -185,15 +178,15 @@ local function prompt_user(headline, body, callback)
     }
 
     local win = api.nvim_open_win(buf, false, opts)
-    local check = vim.loop.new_prepare()
+    local check = vim.uv.new_prepare()
     local prompted = false
-    vim.loop.prepare_start(
+    vim.uv.prepare_start(
         check,
         vim.schedule_wrap(function()
             if not api.nvim_win_is_valid(win) then
                 return
             end
-            vim.loop.prepare_stop(check)
+            vim.uv.prepare_stop(check)
             if not prompted then
                 prompted = true
                 local ans = string.lower(vim.fn.input 'OK to remove? [y/N] ') == 'y'
@@ -226,9 +219,9 @@ local display_mt = {
         if not self:valid_display() then
             return
         end
-        api.nvim_buf_set_option(self.buf, 'modifiable', true)
+        api.nvim_buf_set_option_value(self.buf, 'modifiable', true)
         api.nvim_buf_set_lines(self.buf, start_idx, end_idx, true, lines)
-        api.nvim_buf_set_option(self.buf, 'modifiable', false)
+        api.nvim_buf_set_option_value(self.buf, 'modifiable', false)
     end,
     get_lines = function(self, start_idx, end_idx)
         if not self:valid_display() then
@@ -264,14 +257,14 @@ local display_mt = {
             return
         end
         local headline = api.nvim_buf_get_lines(self.buf, 0, 1, false)[1]
-        local count_start, count_end = string.find(headline, '%d+')
+        local count_start, count_end = string.find(headline, '%d+') or 0, 0
         local count = tonumber(string.sub(headline, count_start, count_end))
         local updated_headline = string.sub(headline, 1, count_start - 1)
             .. tostring(count - 1)
             .. string.sub(headline, count_end + 1)
-        api.nvim_buf_set_option(self.buf, 'modifiable', true)
+        api.nvim_buf_set_option_value(self.buf, 'modifiable', true)
         api.nvim_buf_set_lines(self.buf, 0, 1, false, { updated_headline })
-        api.nvim_buf_set_option(self.buf, 'modifiable', false)
+        api.nvim_buf_set_option_value(self.buf, 'modifiable', false)
     end),
 
     --- Update a task as having successfully completed

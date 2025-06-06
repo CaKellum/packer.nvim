@@ -443,7 +443,7 @@ packer.install = function(...)
             table.insert(tasks, 1, config.max_jobs and config.max_jobs or (#tasks - 1))
             log.debug 'Running tasks'
             display_win:update_headline_message(#tasks - 2 .. ' / ' .. #tasks - 2 .. ' install tasks')
-            a.interruptible_wait_pool(unpack(tasks))
+            a.interruptible_wait_pool(table.unpack(tasks))
             local install_paths = {}
             for plugin_name, r in pairs(results.installs) do
                 if r.ok then
@@ -482,7 +482,7 @@ local filter_opts_from_plugins = function(...)
     if opts.preview_updates == nil and config.preview_updates then
         opts.preview_updates = true
     end
-    return opts, util.nonempty_or(args, vim.tbl_keys(plugins))
+    return opts, util.nonempty_or(args, vim.tbl_keys(plugins or {}))
 end
 
 --- Update operation:
@@ -756,17 +756,21 @@ packer.compile = function(raw_args, move_plugins)
         end
         refresh_configs(plugins)
         -- NOTE: we copy the plugins table so the in memory value is not mutated during compilation
-        local compiled_loader = compile(vim.deepcopy(plugins), output_lua, should_profile)
-        output_path = vim.fn.expand(output_path, true)
-        vim.fn.mkdir(vim.fn.fnamemodify(output_path, ':h'), 'p')
-        local output_file = io.open(output_path, 'w')
-        output_file:write(compiled_loader)
-        output_file:close()
+        if plugins then
+            local compiled_loader = compile(vim.deepcopy(plugins), output_lua, should_profile)
+            output_path = vim.fn.expand(output_path, true)
+            vim.fn.mkdir(vim.fn.fnamemodify(output_path, ':h'), 'p')
+            local output_file = io.open(output_path, 'w')
+            if output_file then
+                output_file:write(compiled_loader)
+                output_file:close()
+            end
+        end
         if config.auto_reload_compiled then
             local configs_to_run = {}
             if _G.packer_plugins ~= nil then
                 for plugin_name, plugin_info in pairs(_G.packer_plugins) do
-                    if plugin_info.loaded and plugin_info.config and plugins[plugin_name] and plugins[plugin_name].cmd then
+                    if plugins and plugin_info.loaded and plugin_info.config and plugins[plugin_name] and plugins[plugin_name].cmd then
                         configs_to_run[plugin_name] = plugin_info.config
                     end
                 end
@@ -775,9 +779,12 @@ packer.compile = function(raw_args, move_plugins)
             vim.cmd('source ' .. output_path)
             for plugin_name, plugin_config in pairs(configs_to_run) do
                 for _, config_line in ipairs(plugin_config) do
-                    local success, err = pcall(loadstring(config_line), plugin_name, _G.packer_plugins[plugin_name])
-                    if not success then
-                        log.error('Error running config for ' .. plugin_name .. ': ' .. vim.inspect(err))
+                    local load_fun, fun_err = load(config_line)
+                    if load_fun and not fun_err then
+                        local success, err = pcall(load_fun, plugin_name, _G.packer_plugins[plugin_name])
+                        if not success then
+                            log.error('Error running config for ' .. plugin_name .. ': ' .. vim.inspect(err))
+                        end
                     end
                 end
             end
@@ -875,7 +882,6 @@ packer.snapshot = function(snapshot_name, ...)
     end
 
     manage_all_plugins()
-
     local target_plugins = plugins
     if next(args) ~= nil then            -- provided extra args
         target_plugins = vim.tbl_filter( -- filter plugins
@@ -888,10 +894,9 @@ packer.snapshot = function(snapshot_name, ...)
                 end
                 return false
             end,
-            plugins
+            plugins or {}
         )
     end
-
     local write_snapshot = true
 
     if vim.fn.filereadable(snapshot_path) == 1 then
@@ -906,7 +911,7 @@ packer.snapshot = function(snapshot_name, ...)
 
     async(function()
         if write_snapshot then
-            await(snapshot.create(snapshot_path, target_plugins))
+            await(snapshot.create(snapshot_path, target_plugins or {}))
                 :map_ok(function(ok)
                     log.info(ok.message)
                     if next(ok.failed) then
@@ -930,7 +935,6 @@ packer.rollback = function(snapshot_name, ...)
     local a = require 'packer.async'
     local async = a.sync
     local await = a.wait
-    local wait_all = a.wait_all
     local snapshot = require 'packer.snapshot'
     local log = require_and_configure 'log'
     local fmt = string.format
@@ -957,10 +961,10 @@ packer.rollback = function(snapshot_name, ...)
                     end
                 end
                 return false
-            end, plugins)
+            end, plugins or {})
         end
 
-        await(snapshot.rollback(snapshot_path, target_plugins))
+        await(snapshot.rollback(snapshot_path, target_plugins or {}))
             :map_ok(function(ok)
                 await(a.main)
                 log.info('Rollback to "' .. snapshot_path .. '" completed')

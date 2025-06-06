@@ -84,7 +84,9 @@ local function pool(n, interrupt_check, ...)
                 elseif not interrupt_check or not interrupt_check() then
                     if remaining and #remaining > 0 then
                         local next_task = table.remove(remaining)
-                        next_task(make_callback(n, #remaining + 1))
+                        if make_callback then
+                            next_task(make_callback(n, #remaining + 1))
+                        end
                     end
                 end
             end

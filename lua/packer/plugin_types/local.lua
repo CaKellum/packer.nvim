@@ -5,12 +5,12 @@ local result = require 'packer.result'
 
 local async = a.sync
 local await = a.wait
-local fmt = string.format
 
 local config = nil
 local function cfg(_config)
     config = _config
 end
+
 
 -- Due to #679, we know that fs_symlink requires admin privileges on Windows. This is a workaround,
 -- as suggested by @nonsleepr.

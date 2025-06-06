@@ -46,7 +46,7 @@ local breaking_change_pattern = [=[[bB][rR][eE][aA][kK][iI][nN][gG][ _][cC][hH][
 local type_exclam_pattern = [=[[a-zA-Z]+!:]=]
 local type_scope_exclam_pattern = [=[[a-zA-Z]+%([^)]+%)!:]=]
 local function mark_breaking_commits(plugin, commit_bodies)
-    local commits = vim.gsplit(table.concat(commit_bodies, '\n'), '===COMMIT_START===', true)
+    local commits = vim.gsplit(table.concat(commit_bodies, '\n'), '===COMMIT_START===', { plain = true })
     for commit in commits do
         local commit_parts = vim.split(commit, '===BODY_START===')
         local body = commit_parts[2]
@@ -85,8 +85,7 @@ git.cfg = function(_config)
 end
 
 ---Resets a git repo `dest` to `commit`
----@param dest string @ path to the local git repo
----@param commit string @ commit hash
+---@param dest string @ path to the local git repo @param commit string @ commit hash
 ---@return function @ async function
 local function reset(dest, commit)
     local reset_cmd = fmt(config.exec_cmd .. config.subcommands.revert_to, commit)
@@ -295,7 +294,7 @@ git.setup = function(plugin)
         return async(function()
             return await(
                 jobs.run(
-                    fmt('%s remote get-url origin', config.exec_cmd),
+                    fmt('%s remote get-url origin', (config or {}).exec_cmd),
                     { capture_output = true, cwd = plugin.install_path, options = { env = git.job_env } }
                 )
             ):map_ok(function(data)
