@@ -172,7 +172,7 @@ packer.use_rocks = function(rock)
     if type(rock) == 'string' then
         rock = { rock }
     end
-    if not vim.tbl_islist(rock) and type(rock[1]) == 'string' then
+    if not vim.islist(rock) and type(rock[1]) == 'string' then
         rocks[rock[1]] = rock
     else
         for _, r in ipairs(rock) do
@@ -214,12 +214,12 @@ manage = function(plugin_data)
         return
     end
 
-    if plugins[name] and not plugins[name].from_requires then
+    if plugins and plugins[name] and not plugins[name].from_requires then
         log.warn('Plugin "' .. name .. '" is used twice! (line ' .. spec_line .. ')')
         return
     end
 
-    if plugin_spec.as and plugins[plugin_spec.as] then
+    if plugins and plugin_spec.as and plugins[plugin_spec.as] then
         log.error(
             'The alias '
             .. plugin_spec.as
@@ -275,7 +275,9 @@ manage = function(plugin_data)
     end
 
     -- Add the git URL for displaying in PackerStatus and PackerSync.
-    plugins[plugin_spec.short_name].url = util.remove_ending_git_url(plugin_spec.url)
+    if plugins then
+        plugins[plugin_spec.short_name].url = util.remove_ending_git_url(plugin_spec.url)
+    end
 
     if plugin_spec.requires and config.ensure_dependencies then
         -- Handle single plugins given as strings or single plugin specs given as tables
@@ -283,7 +285,7 @@ manage = function(plugin_data)
             type(plugin_spec.requires) == 'string'
             or (
                 type(plugin_spec.requires) == 'table'
-                and not vim.tbl_islist(plugin_spec.requires)
+                and not vim.islist(plugin_spec.requires)
                 and #plugin_spec.requires == 1
             )
         then
@@ -300,7 +302,7 @@ manage = function(plugin_data)
             -- the plugin is from a `requires` field and the full specification has not been called yet.
             -- @see: https://github.com/wbthomason/packer.nvim/issues/258#issuecomment-876568439
             req.from_requires = true
-            if not plugins[req_name] then
+            if plugins and not plugins[req_name] then
                 if config.transitive_opt and plugin_spec.manual_opt then
                     req.opt = true
                     if type(req.after) == 'string' then
@@ -321,8 +323,9 @@ manage = function(plugin_data)
                 if config.transitive_disable and plugin_spec.disable then
                     req.disable = true
                 end
-
-                manage { spec = req, line = spec_line }
+                if manage then
+                    manage { spec = req, line = spec_line }
+                end
             end
         end
     end
